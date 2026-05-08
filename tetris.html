@@ -59,6 +59,7 @@
   .stat { display: flex; justify-content: space-between; font-size: 14px; }
   .stat + .stat { margin-top: 4px; }
   .stat b { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat b.hearts { color: #ff6b7a; letter-spacing: 2px; }
   canvas#next, canvas#hold {
     display: block; width: 100%;
     background: #0f1228;
@@ -108,6 +109,7 @@
     <div class="side">
       <div class="card">
         <h2>Score</h2>
+        <div class="stat"><span>Lives</span><b id="livesDisplay" class="hearts">&#9829;&#9829;&#9829;</b></div>
         <div class="stat"><span>Score</span><b id="score">0</b></div>
         <div class="stat"><span>Lines</span><b id="lines">0</b></div>
         <div class="stat"><span>Level</span><b id="level">1</b></div>
@@ -138,6 +140,8 @@
 <script>
 (() => {
   const COLS = 10, ROWS = 20, CELL = 30;
+  const MAX_LIVES = 3;
+  const RESPAWN_DELAY_MS = 1500;
   const board = document.getElementById('board');
   const ctx = board.getContext('2d');
   const nextCv = document.getElementById('next');
@@ -150,6 +154,7 @@
   const $score = document.getElementById('score');
   const $lines = document.getElementById('lines');
   const $level = document.getElementById('level');
+  const $livesEl = document.getElementById('livesDisplay');
 
   const COLORS = {
     I: '#4ec9ff', O: '#f5d76e', T: '#c879ff',
@@ -168,6 +173,7 @@
 
   let grid, current, nextType, holdType, canHold, bag, dropTimer, dropInterval;
   let score, lines, level, gameOver, paused, started;
+  let lives, respawning, respawnHandle;
 
   function newBag() {
     const b = TYPES.slice();
@@ -209,13 +215,15 @@
     return false;
   }
   function merge(p) {
+    let overflow = false;
     for (let y = 0; y < p.matrix.length; y++)
       for (let x = 0; x < p.matrix[y].length; x++)
         if (p.matrix[y][x]) {
           const ny = p.y + y;
-          if (ny < 0) { gameOver = true; return; }
+          if (ny < 0) { overflow = true; continue; }
           grid[ny][p.x + x] = p.type;
         }
+    return overflow;
   }
   function clearLines() {
     let cleared = 0;
@@ -242,10 +250,7 @@
     current = makePiece(nextType);
     nextType = nextFromBag();
     canHold = true;
-    if (collide(current)) {
-      gameOver = true;
-      showOverlay('Game Over', 'R 키로 다시 시작');
-    }
+    return !collide(current);
   }
   function hardDrop() {
     let d = 0;
@@ -258,10 +263,10 @@
     else lock();
   }
   function lock() {
-    merge(current);
-    if (gameOver) { showOverlay('Game Over', 'R 키로 다시 시작'); return; }
+    const overflow = merge(current);
+    if (overflow) { loseLife(); return; }
     clearLines();
-    spawn();
+    if (!spawn()) loseLife();
   }
   function tryRotate(dir) {
     const r = rotate(current.matrix, dir);
@@ -284,17 +289,40 @@
       nextType = nextFromBag();
     }
     canHold = false;
-    if (collide(current)) { gameOver = true; showOverlay('Game Over', 'R 키로 다시 시작'); }
+    if (collide(current)) loseLife();
+  }
+
+  function loseLife() {
+    lives--;
+    if (lives <= 0) {
+      gameOver = true;
+      showOverlay('Game Over', `최종 점수 ${score} — R 키로 다시 시작`);
+      return;
+    }
+    grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+    respawning = true;
+    showOverlay('생명 -1', `남은 목숨 ${lives}`);
+    if (respawnHandle) clearTimeout(respawnHandle);
+    respawnHandle = setTimeout(() => {
+      respawnHandle = null;
+      if (gameOver) return;
+      respawning = false;
+      hideOverlay();
+      dropTimer = 0;
+      if (!spawn()) loseLife();
+    }, RESPAWN_DELAY_MS);
   }
 
   function reset() {
+    if (respawnHandle) { clearTimeout(respawnHandle); respawnHandle = null; }
     grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
     bag = newBag();
     nextType = nextFromBag();
     holdType = null; canHold = true;
     score = 0; lines = 0; level = 1;
+    lives = MAX_LIVES;
     dropInterval = 800; dropTimer = 0;
-    gameOver = false; paused = false;
+    gameOver = false; paused = false; respawning = false;
     spawn();
     hideOverlay();
   }
@@ -359,6 +387,8 @@
     $score.textContent = score;
     $lines.textContent = lines;
     $level.textContent = level;
+    const filled = Math.max(0, lives);
+    $livesEl.textContent = '♥'.repeat(filled) + '♡'.repeat(Math.max(0, MAX_LIVES - filled));
   }
 
   function drawMini(c, type) {
@@ -386,7 +416,7 @@
   let last = 0;
   function loop(t) {
     requestAnimationFrame(loop);
-    if (!started || paused || gameOver) { draw(); return; }
+    if (!started || paused || gameOver || respawning) { last = t; draw(); return; }
     const dt = t - last; last = t;
     dropTimer += dt;
     if (dropTimer > dropInterval) {
@@ -413,7 +443,7 @@
       if (paused) showOverlay('Paused', 'P 키로 계속'); else hideOverlay();
       return;
     }
-    if (paused) return;
+    if (paused || respawning) return;
     switch (k) {
       case 'arrowleft':  if (!collide(current, -1, 0)) current.x--; e.preventDefault(); break;
       case 'arrowright': if (!collide(current,  1, 0)) current.x++; e.preventDefault(); break;
@@ -435,7 +465,7 @@
   nextType = nextFromBag();
   holdType = null;
   current = makePiece(nextFromBag());
-  score = 0; lines = 0; level = 1; dropInterval = 800;
+  score = 0; lines = 0; level = 1; lives = MAX_LIVES; dropInterval = 800;
   showOverlay('Tetris', '아무 키나 눌러 시작');
   requestAnimationFrame(loop);
 })();
