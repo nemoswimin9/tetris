@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<meta name="theme-color" content="#0f1220" />
 <title>Tetris</title>
 <style>
   :root {
@@ -29,15 +31,21 @@
   .game {
     display: grid;
     grid-template-columns: auto 220px;
+    grid-template-areas: "board side";
     gap: 18px;
     align-items: start;
   }
+  .board-wrap { grid-area: board; }
+  .side       { grid-area: side; }
+  .touch-controls { grid-area: controls; display: none; }
   canvas#board {
     background: var(--panel);
     border: 2px solid var(--grid);
     border-radius: 10px;
     box-shadow: 0 20px 60px rgba(0,0,0,.45);
     image-rendering: pixelated;
+    touch-action: none;
+    display: block;
   }
   .side {
     display: flex; flex-direction: column; gap: 14px;
@@ -92,6 +100,123 @@
     font-size: 13px;
   }
   button.btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- touch controls (mobile) ---------- */
+  .tc-cluster {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .tc-btn {
+    appearance: none; cursor: pointer;
+    width: 100%; aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1px solid var(--grid);
+    background: linear-gradient(180deg, #2a3158 0%, #1a1e3a 100%);
+    color: var(--text);
+    font-size: 26px; line-height: 1;
+    display: grid; place-items: center;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.12),
+      inset 0 -3px 0 rgba(0,0,0,.45),
+      0 8px 18px rgba(0,0,0,.35);
+    transition: transform .08s ease, filter .15s ease, box-shadow .12s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+    font-family: inherit;
+    font-weight: 700;
+  }
+  .tc-btn:active, .tc-btn.pressing {
+    transform: translateY(2px);
+    filter: brightness(1.25);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.08),
+      inset 0 -1px 0 rgba(0,0,0,.3),
+      0 2px 6px rgba(0,0,0,.35);
+  }
+  .tc-btn.tc-rotate {
+    background: linear-gradient(180deg, #4a3f78 0%, #2a2350 100%);
+    border-color: #6a5fa8;
+  }
+  .tc-btn.tc-drop {
+    background: linear-gradient(180deg, #3a5fb0 0%, #1e3a78 100%);
+    border-color: var(--accent);
+    color: #cfe1ff;
+  }
+  .tc-btn.tc-hold {
+    background: linear-gradient(180deg, #c98a4a 0%, #7a4a1e 100%);
+    border-color: #e8a55c;
+    font-size: 20px;
+  }
+  .tc-btn .lbl {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    margin-top: 2px;
+    color: rgba(255,255,255,.55);
+    font-weight: 600;
+  }
+
+  /* ---------- mobile layout ---------- */
+  @media (max-width: 720px), (pointer: coarse) and (max-width: 920px) {
+    .wrap { padding: 10px; min-height: 100dvh; align-items: start; padding-top: 14px; }
+    .game {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "board"
+        "controls"
+        "side";
+      gap: 12px;
+      width: 100%;
+      max-width: 480px;
+      justify-items: center;
+    }
+    canvas#board {
+      width: min(94vw, 380px);
+      height: auto;
+    }
+    canvas#next, canvas#hold {
+      height: 76px;
+    }
+    .touch-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      width: min(94vw, 420px);
+      padding: 4px 0;
+    }
+    .side {
+      width: min(94vw, 380px);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      align-content: start;
+    }
+    .side .card { padding: 10px 12px; }
+    .side .card.score-card {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 4px 14px;
+      align-items: baseline;
+    }
+    .side .card.score-card h2 { display: none; }
+    .side .card.score-card .stat {
+      display: flex; flex-direction: column; gap: 2px;
+      font-size: 11px;
+    }
+    .side .card.score-card .stat span {
+      color: var(--muted); font-size: 10px;
+      letter-spacing: 1.2px; text-transform: uppercase;
+    }
+    .side .card.score-card .stat b { font-size: 16px; }
+    .side .card.score-card .stat b.hearts { font-size: 14px; }
+    .side .card h2 {
+      font-size: 10px; letter-spacing: 1px; margin-bottom: 4px;
+    }
+    .keys-card { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -106,8 +231,20 @@
         </div>
       </div>
     </div>
+    <div class="touch-controls" aria-label="모바일 컨트롤">
+      <div class="tc-cluster tc-dpad">
+        <button class="tc-btn tc-left"   data-act="left"   aria-label="왼쪽">◀</button>
+        <button class="tc-btn tc-down"   data-act="down"   aria-label="소프트 드롭">▼</button>
+        <button class="tc-btn tc-right"  data-act="right"  aria-label="오른쪽">▶</button>
+      </div>
+      <div class="tc-cluster tc-actions">
+        <button class="tc-btn tc-hold"   data-act="hold"   aria-label="홀드">HOLD</button>
+        <button class="tc-btn tc-drop"   data-act="drop"   aria-label="하드 드롭">⇓</button>
+        <button class="tc-btn tc-rotate" data-act="rotate" aria-label="회전">↻</button>
+      </div>
+    </div>
     <div class="side">
-      <div class="card">
+      <div class="card score-card">
         <h2>Score</h2>
         <div class="stat"><span>Lives</span><b id="livesDisplay" class="hearts">&#9829;&#9829;&#9829;</b></div>
         <div class="stat"><span>Score</span><b id="score">0</b></div>
@@ -122,7 +259,7 @@
         <h2>Hold</h2>
         <canvas id="hold" width="160" height="160"></canvas>
       </div>
-      <div class="card keys">
+      <div class="card keys keys-card">
         <h2>Controls</h2>
         <div><kbd>←</kbd><kbd>→</kbd> 이동</div>
         <div><kbd>↓</kbd> 소프트 드롭</div>
@@ -296,7 +433,7 @@
     lives--;
     if (lives <= 0) {
       gameOver = true;
-      showOverlay('Game Over', `최종 점수 ${score} — R 키로 다시 시작`);
+      showOverlay('Game Over', `최종 점수 ${score} — 화면 탭 또는 R 키로 다시 시작`);
       return;
     }
     grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
@@ -460,13 +597,75 @@
     reset(); started = true;
   });
 
+  // ---------- touch / pointer controls ----------
+  const DAS_MS = 180;   // initial delay before auto-repeat starts
+  const ARR_MS = 70;    // auto-repeat interval after DAS
+  const REPEATABLE = new Set(['left', 'right', 'down']);
+  const repeatTimers = new Map();
+  const repeatIntervals = new Map();
+
+  function performAct(act) {
+    if (!started) {
+      started = true;
+      reset();
+      return;
+    }
+    if (gameOver || paused || respawning) return;
+    switch (act) {
+      case 'left':   if (!collide(current, -1, 0)) current.x--; break;
+      case 'right':  if (!collide(current,  1, 0)) current.x++; break;
+      case 'down':   softDrop(); break;
+      case 'rotate': tryRotate(1); break;
+      case 'drop':   hardDrop(); break;
+      case 'hold':   doHold(); break;
+    }
+  }
+  function pressStart(btn, e) {
+    if (e) e.preventDefault();
+    const act = btn.dataset.act;
+    btn.classList.add('pressing');
+    performAct(act);
+    if (REPEATABLE.has(act)) {
+      const t = setTimeout(() => {
+        const i = setInterval(() => performAct(act), ARR_MS);
+        repeatIntervals.set(btn, i);
+      }, DAS_MS);
+      repeatTimers.set(btn, t);
+    }
+    if (btn.setPointerCapture && e && e.pointerId != null) {
+      try { btn.setPointerCapture(e.pointerId); } catch {}
+    }
+  }
+  function pressEnd(btn, e) {
+    if (e) e.preventDefault();
+    btn.classList.remove('pressing');
+    const t = repeatTimers.get(btn); if (t) clearTimeout(t);
+    const i = repeatIntervals.get(btn); if (i) clearInterval(i);
+    repeatTimers.delete(btn); repeatIntervals.delete(btn);
+  }
+  document.querySelectorAll('.tc-btn').forEach((btn) => {
+    btn.addEventListener('pointerdown',   (e) => pressStart(btn, e));
+    btn.addEventListener('pointerup',     (e) => pressEnd(btn, e));
+    btn.addEventListener('pointercancel', (e) => pressEnd(btn, e));
+    btn.addEventListener('pointerleave',  (e) => pressEnd(btn, e));
+    btn.addEventListener('contextmenu',   (e) => e.preventDefault());
+  });
+
+  // tap on board / overlay to start or restart (mobile UX)
+  function tapStartOrRestart(e) {
+    if (!started) { started = true; reset(); e && e.preventDefault(); return; }
+    if (gameOver) { reset(); started = true; e && e.preventDefault(); return; }
+  }
+  document.getElementById('board').addEventListener('pointerdown', tapStartOrRestart);
+  document.getElementById('overlay').addEventListener('pointerdown', tapStartOrRestart);
+
   grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
   bag = newBag();
   nextType = nextFromBag();
   holdType = null;
   current = makePiece(nextFromBag());
   score = 0; lines = 0; level = 1; lives = MAX_LIVES; dropInterval = 800;
-  showOverlay('Tetris', '아무 키나 눌러 시작');
+  showOverlay('Tetris', '화면을 탭하거나 키를 눌러 시작');
   requestAnimationFrame(loop);
 })();
 </script>
