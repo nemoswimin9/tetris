@@ -1,0 +1,18 @@
+# secrets / env
+.env
+.env.*
+!.env.example
+
+# os / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# claude code local state
+.claude/
+CLAUDE.local.md
+
+# logs
+*.log
