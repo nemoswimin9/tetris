@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>elfan의 작업실 — AI 리모컨 & 테트리스</title>
+<meta name="description" content="브라우저에서 바로 즐기는 AI 서비스 런처와 테트리스 게임" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  body {
+    font-family: "Segoe UI", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color: #2b2440;
+    background:
+      radial-gradient(900px 600px at 80% -10%, #ffe2c8 0%, transparent 60%),
+      radial-gradient(800px 700px at -10% 30%, #d6e6ff 0%, transparent 60%),
+      radial-gradient(700px 800px at 60% 110%, #ffd9ec 0%, transparent 60%),
+      linear-gradient(180deg, #fff5ec 0%, #f3ecff 60%, #e8f4ff 100%);
+    overflow-x: hidden;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content:""; position: fixed; inset: 0; pointer-events: none; opacity: .35;
+    background-image: radial-gradient(rgba(255,255,255,.45) 1px, transparent 1px);
+    background-size: 3px 3px; mix-blend-mode: overlay;
+  }
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .stars i {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: #fff; box-shadow: 0 0 12px #fff, 0 0 4px #fff;
+    opacity: .55; animation: twinkle 4s ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { transform: scale(1); opacity: .25; }
+    50% { transform: scale(1.6); opacity: 1; }
+  }
+
+  main {
+    position: relative; z-index: 1;
+    max-width: 1080px; margin: 0 auto;
+    padding: 56px 24px 64px;
+  }
+  .badge {
+    display: inline-flex; gap: 8px; align-items: center;
+    background: rgba(255,255,255,.7);
+    border: 1px solid rgba(43,36,64,.08);
+    padding: 6px 14px; border-radius: 999px;
+    font-size: 12px; letter-spacing: 1.5px;
+    color: #6b5f8a; backdrop-filter: blur(8px);
+    box-shadow: 0 8px 30px rgba(80,60,140,.08);
+  }
+  .badge .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4cd964; box-shadow: 0 0 8px #4cd964;
+    animation: blink 1.6s ease-in-out infinite;
+  }
+  @keyframes blink { 50% { opacity: .3; } }
+
+  header {
+    text-align: center; margin-bottom: 48px;
+  }
+  header h1 {
+    margin: 14px 0 8px;
+    font-size: clamp(34px, 5vw, 52px);
+    font-weight: 800; letter-spacing: -.5px;
+    background: linear-gradient(90deg, #ff8a5b, #c879ff 50%, #5b8dff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header p {
+    margin: 0; color: #6b5f8a;
+    font-size: clamp(14px, 1.5vw, 16px);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+  @media (max-width: 720px) {
+    .cards { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    position: relative;
+    display: flex; flex-direction: column;
+    text-decoration: none; color: inherit;
+    background: rgba(255,255,255,.78);
+    border-radius: 28px;
+    padding: 28px 28px 26px;
+    border: 1px solid rgba(80,40,120,.08);
+    box-shadow:
+      0 22px 44px rgba(80,40,120,.14),
+      0 4px 10px rgba(80,40,120,.08),
+      inset 0 1px 0 rgba(255,255,255,.8);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1),
+                box-shadow .35s ease;
+  }
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      0 32px 60px rgba(80,40,120,.22),
+      0 8px 16px rgba(80,40,120,.1),
+      inset 0 1px 0 rgba(255,255,255,.9);
+  }
+  .card::after {
+    content: ""; position: absolute; inset: 0;
+    background: var(--accent-glow, transparent);
+    opacity: 0; transition: opacity .35s ease;
+    pointer-events: none; border-radius: inherit;
+    mix-blend-mode: overlay;
+  }
+  .card:hover::after { opacity: 1; }
+
+  .card-art {
+    aspect-ratio: 5 / 3;
+    border-radius: 18px;
+    margin-bottom: 18px;
+    display: grid; place-items: center;
+    background: var(--art-bg);
+    overflow: hidden;
+    position: relative;
+  }
+  .card-art svg {
+    width: 80%; height: 80%;
+    transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  .card:hover .card-art svg { transform: scale(1.06) rotate(-2deg); }
+
+  .card h2 {
+    margin: 0 0 6px; font-size: 22px; font-weight: 800;
+    letter-spacing: -.3px; color: #2b2440;
+  }
+  .card p {
+    margin: 0; color: #6b5f8a; font-size: 14px;
+    line-height: 1.55;
+  }
+  .card .row {
+    margin-top: 18px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px;
+  }
+  .card .meta {
+    display: inline-flex; gap: 6px;
+    font-size: 11px; letter-spacing: 1.2px; color: #6b5f8a;
+    text-transform: uppercase;
+  }
+  .card .meta span {
+    background: rgba(43,36,64,.06);
+    padding: 3px 8px; border-radius: 6px;
+  }
+  .card .cta {
+    display: inline-flex; gap: 6px; align-items: center;
+    font-size: 13px; font-weight: 700;
+    padding: 10px 16px; border-radius: 12px;
+    background: var(--accent); color: #fff;
+    box-shadow: 0 6px 14px var(--accent-shadow);
+    transition: transform .2s ease;
+  }
+  .card:hover .cta { transform: translateX(4px); }
+  .card .cta::after { content: "→"; transition: transform .25s ease; }
+  .card:hover .cta::after { transform: translateX(3px); }
+
+  /* per-card accents */
+  .card-remote {
+    --accent: linear-gradient(135deg, #ff8a5b, #d63a52);
+    --accent-shadow: rgba(214,58,82,.32);
+    --accent-glow: linear-gradient(135deg, rgba(255,138,91,.12), transparent 60%);
+    --art-bg: linear-gradient(160deg, #2a2340 0%, #4a3f6b 100%);
+  }
+  .card-tetris {
+    --accent: linear-gradient(135deg, #5b8dff, #c879ff);
+    --accent-shadow: rgba(91,141,255,.32);
+    --accent-glow: linear-gradient(135deg, rgba(91,141,255,.12), transparent 60%);
+    --art-bg: linear-gradient(160deg, #1a1c3a 0%, #2a2350 100%);
+  }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    color: #8076a0;
+    font-size: 12px;
+    letter-spacing: .5px;
+  }
+  footer a {
+    color: #6b5b9e; text-decoration: none;
+    border-bottom: 1px dotted #b3a4d2;
+    transition: color .2s ease, border-color .2s ease;
+  }
+  footer a:hover { color: #2b2440; border-color: #2b2440; }
+
+  /* art animations */
+  @keyframes pulse {
+    0%, 100% { opacity: .9; }
+    50% { opacity: .5; }
+  }
+  @keyframes drift {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  .drift { animation: drift 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+</style>
+</head>
+<body>
+
+<div class="stars" aria-hidden="true">
+  <i style="left:8%;top:18%;animation-delay:0s"></i>
+  <i style="left:18%;top:62%;animation-delay:1.2s"></i>
+  <i style="left:90%;top:14%;animation-delay:.6s"></i>
+  <i style="left:82%;top:74%;animation-delay:1.8s"></i>
+  <i style="left:36%;top:8%;animation-delay:2.4s"></i>
+  <i style="left:62%;top:88%;animation-delay:3s"></i>
+  <i style="left:48%;top:50%;animation-delay:2s;width:4px;height:4px"></i>
+</div>
+
+<main>
+  <header>
+    <span class="badge"><span class="dot"></span> ONLINE · GitHub Pages</span>
+    <h1>elfan의 작업실</h1>
+    <p>브라우저에서 바로 즐기는 두 개의 미니 프로젝트</p>
+  </header>
+
+  <div class="cards">
+    <a href="ai-remote.html" class="card card-remote">
+      <div class="card-art">
+        <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="tvFace" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1a1632"/>
+              <stop offset="1" stop-color="#0a0820"/>
+            </linearGradient>
+          </defs>
+          <line x1="100" y1="6" x2="80" y2="22" stroke="#cebadc" stroke-width="2" stroke-linecap="round"/>
+          <line x1="100" y1="6" x2="120" y2="22" stroke="#cebadc" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="80" cy="22" r="3.5" fill="#ff9b6a"/>
+          <circle cx="120" cy="22" r="3.5" fill="#ff9b6a"/>
+          <rect x="40" y="22" width="120" height="84" rx="14"
+                fill="#3c3454" stroke="#5b4f78" stroke-width="1"/>
+          <rect x="48" y="30" width="104" height="58" rx="8" fill="url(#tvFace)"/>
+          <g class="drift">
+            <path d="M 100 50 L 105 62 L 117 62 L 108 70 L 112 82 L 100 75 L 88 82 L 92 70 L 83 62 L 95 62 Z"
+                  fill="#ffb88c" stroke="#cc785c" stroke-width="1.5" stroke-linejoin="round"/>
+          </g>
+          <text x="100" y="98" text-anchor="middle" font-family="ui-monospace, monospace"
+                font-size="6" fill="#ffea7a" letter-spacing="1.5">CH 01</text>
+          <circle cx="56" cy="100" r="2" fill="#4cd964" class="pulse"/>
+          <rect x="68" y="98" width="64" height="4" rx="2" fill="#5b4f78"/>
+          <rect x="138" y="96" width="6" height="8" rx="1" fill="#5b4f78"/>
+        </svg>
+      </div>
+      <h2>AI 리모컨</h2>
+      <p>Claude · ChatGPT · Gemini · Perplexity 채널을 골라 바로 이동</p>
+      <div class="row">
+        <div class="meta"><span>HTML</span><span>SVG</span><span>NO DEPS</span></div>
+        <span class="cta">Launch</span>
+      </div>
+    </a>
+
+    <a href="tetris.html" class="card card-tetris">
+      <div class="card-art">
+        <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+          <rect x="40" y="14" width="120" height="92" rx="6" fill="#171a2e" stroke="#232845" stroke-width="1"/>
+          <g opacity=".25" stroke="#3a3f60" stroke-width=".5">
+            <line x1="60" y1="14" x2="60" y2="106"/>
+            <line x1="80" y1="14" x2="80" y2="106"/>
+            <line x1="100" y1="14" x2="100" y2="106"/>
+            <line x1="120" y1="14" x2="120" y2="106"/>
+            <line x1="140" y1="14" x2="140" y2="106"/>
+            <line x1="40" y1="34" x2="160" y2="34"/>
+            <line x1="40" y1="54" x2="160" y2="54"/>
+            <line x1="40" y1="74" x2="160" y2="74"/>
+            <line x1="40" y1="94" x2="160" y2="94"/>
+          </g>
+          <g class="drift">
+            <rect x="80" y="32" width="20" height="20" rx="2" fill="#c879ff" stroke="#7a3ca8" stroke-width="1"/>
+            <rect x="80" y="32" width="20" height="3" fill="rgba(255,255,255,.3)"/>
+            <rect x="80" y="49" width="20" height="3" fill="rgba(0,0,0,.25)"/>
+          </g>
+          <rect x="60" y="86" width="20" height="20" rx="2" fill="#5b8dff" stroke="#3a5fb0" stroke-width="1"/>
+          <rect x="80" y="86" width="20" height="20" rx="2" fill="#5b8dff" stroke="#3a5fb0" stroke-width="1"/>
+          <rect x="100" y="86" width="20" height="20" rx="2" fill="#5b8dff" stroke="#3a5fb0" stroke-width="1"/>
+          <rect x="120" y="86" width="20" height="20" rx="2" fill="#7ee06b" stroke="#4a8c3c" stroke-width="1"/>
+          <rect x="120" y="66" width="20" height="20" rx="2" fill="#7ee06b" stroke="#4a8c3c" stroke-width="1"/>
+          <rect x="140" y="66" width="20" height="20" rx="2" fill="#7ee06b" stroke="#4a8c3c" stroke-width="1"/>
+          <rect x="140" y="86" width="20" height="20" rx="2" fill="#f5d76e" stroke="#a8852a" stroke-width="1"/>
+          <g transform="translate(54 18)">
+            <text font-family="ui-monospace, monospace" font-size="8" fill="#ff6b7a">♥♥♥</text>
+          </g>
+        </svg>
+      </div>
+      <h2>테트리스</h2>
+      <p>홀드 · 고스트 피스 · 3 목숨 · 7-bag 랜덤 · 키보드 조작</p>
+      <div class="row">
+        <div class="meta"><span>HTML</span><span>CANVAS</span><span>NO DEPS</span></div>
+        <span class="cta">Play</span>
+      </div>
+    </a>
+  </div>
+
+  <footer>
+    <a href="https://github.com/nemoswimin9/tetris" target="_blank" rel="noopener noreferrer">GitHub</a>
+    &nbsp;·&nbsp;
+    <span>made with care</span>
+  </footer>
+</main>
+
+</body>
+</html>
