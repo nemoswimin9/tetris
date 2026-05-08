@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI 리모컨 — 채널을 골라봐</title>
+<style>
+  /* ----------  base ---------- */
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  body {
+    font-family: "Segoe UI", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color: #2b2440;
+    background:
+      radial-gradient(900px 600px at 80% -10%, #ffe2c8 0%, transparent 60%),
+      radial-gradient(800px 700px at -10% 30%, #d6e6ff 0%, transparent 60%),
+      radial-gradient(700px 800px at 60% 110%, #ffd9ec 0%, transparent 60%),
+      linear-gradient(180deg, #fff5ec 0%, #f3ecff 60%, #e8f4ff 100%);
+    overflow-x: hidden;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* gentle grain */
+  body::before {
+    content:""; position: fixed; inset: 0; pointer-events: none; opacity: .35;
+    background-image: radial-gradient(rgba(255,255,255,.45) 1px, transparent 1px);
+    background-size: 3px 3px; mix-blend-mode: overlay;
+  }
+  /* twinkling stars */
+  .stars {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  }
+  .stars i {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: #fff; box-shadow: 0 0 12px #fff, 0 0 4px #fff;
+    opacity: .55; animation: twinkle 4s ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { transform: scale(1); opacity: .25; }
+    50% { transform: scale(1.6); opacity: 1; }
+  }
+
+  /* ---------- layout ---------- */
+  .stage {
+    position: relative;
+    max-width: 1180px; margin: 0 auto;
+    padding: 36px 24px 80px;
+    display: grid;
+    grid-template-columns: 1.05fr .95fr;
+    grid-template-areas: "tv remote";
+    gap: 36px;
+    align-items: center;
+    z-index: 1;
+  }
+  .header {
+    grid-column: 1 / -1;
+    text-align: center; margin-bottom: 8px;
+  }
+  .header .badge {
+    display: inline-flex; gap: 8px; align-items: center;
+    background: rgba(255,255,255,.7);
+    border: 1px solid rgba(43,36,64,.08);
+    padding: 6px 14px; border-radius: 999px;
+    font-size: 12px; letter-spacing: 1.5px;
+    color: #6b5f8a; backdrop-filter: blur(8px);
+    box-shadow: 0 8px 30px rgba(80,60,140,.08);
+  }
+  .header .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5b5b; box-shadow: 0 0 8px #ff5b5b; animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+  .header h1 {
+    margin: 14px 0 6px; font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800; letter-spacing: -.5px;
+    background: linear-gradient(90deg, #ff8a5b, #c879ff 50%, #5b8dff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .header p { margin: 0; color: #6b5f8a; font-size: 14px; }
+
+  .tv-area  { grid-area: tv; position: relative; min-height: 460px; display: flex; justify-content: center; align-items: center; }
+  .remote-area { grid-area: remote; display: flex; justify-content: center; }
+
+  /* ---------- TV ---------- */
+  .tv {
+    position: relative;
+    width: min(520px, 100%);
+    filter: drop-shadow(0 30px 40px rgba(60,30,90,.18));
+  }
+  .tv-antenna {
+    position: absolute; left: 50%; top: -54px; transform: translateX(-50%);
+    width: 120px; height: 60px;
+    background:
+      linear-gradient(45deg, transparent calc(50% - 1.5px), #4a3f6b calc(50% - 1.5px), #4a3f6b calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+      linear-gradient(-45deg, transparent calc(50% - 1.5px), #4a3f6b calc(50% - 1.5px), #4a3f6b calc(50% + 1.5px), transparent calc(50% + 1.5px));
+    pointer-events: none;
+  }
+  .tv-antenna::before, .tv-antenna::after {
+    content:""; position: absolute; top: -4px; width: 10px; height: 10px;
+    background: radial-gradient(circle at 35% 30%, #ff9b6a, #c95a3a);
+    border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2);
+  }
+  .tv-antenna::before { left: -3px; }
+  .tv-antenna::after { right: -3px; }
+  .tv-body {
+    position: relative;
+    background: linear-gradient(180deg, #3c3454 0%, #2a2340 100%);
+    border-radius: 32px;
+    padding: 22px 22px 60px;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,.08),
+      inset 0 -2px 0 rgba(0,0,0,.4),
+      0 30px 60px rgba(40,20,80,.25);
+  }
+  .tv-screen {
+    position: relative;
+    border-radius: 18px;
+    aspect-ratio: 4 / 3;
+    background: radial-gradient(ellipse at 50% 50%, #1a1632 0%, #0d0a1f 100%);
+    overflow: hidden;
+    box-shadow:
+      inset 0 0 0 4px #1a1632,
+      inset 0 0 30px rgba(0,0,0,.85),
+      inset 0 0 80px rgba(0,0,0,.5);
+  }
+  /* CRT scanlines */
+  .tv-screen::before {
+    content:""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 3px);
+    pointer-events: none; z-index: 5;
+  }
+  /* CRT glow */
+  .tv-screen::after {
+    content:""; position: absolute; inset: 0; border-radius: 18px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.12), transparent 60%);
+    pointer-events: none; z-index: 6;
+  }
+  /* static layer when changing channels */
+  .static-layer {
+    position: absolute; inset: 0; opacity: 0; pointer-events: none; z-index: 4;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.6) 0 1px, transparent 1px 2px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.4) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+    animation: noise .12s steps(2) infinite;
+  }
+  @keyframes noise {
+    0% { transform: translate(0,0); }
+    50% { transform: translate(-1px, 1px); }
+    100% { transform: translate(1px, -1px); }
+  }
+
+  .channel-content {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 32px;
+    text-align: center;
+    z-index: 2;
+  }
+  .channel-tag {
+    position: absolute; top: 14px; right: 18px; z-index: 3;
+    color: #ffea7a; font-family: ui-monospace, "Consolas", monospace;
+    font-size: 14px; letter-spacing: 2px;
+    text-shadow: 0 0 8px rgba(255,234,122,.6);
+  }
+  .channel-time {
+    position: absolute; top: 14px; left: 18px; z-index: 3;
+    color: rgba(255,255,255,.5);
+    font-family: ui-monospace, "Consolas", monospace;
+    font-size: 12px; letter-spacing: 1.5px;
+  }
+  .ch-logo {
+    width: 96px; height: 96px;
+    display: grid; place-items: center;
+    border-radius: 24px;
+    transition: transform .4s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  .ch-title {
+    font-size: 32px; font-weight: 800;
+    color: #fff; letter-spacing: -.5px;
+    text-shadow: 0 0 20px currentColor;
+  }
+  .ch-sub {
+    font-size: 13px; color: rgba(255,255,255,.7);
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+  /* default idle screen */
+  .ch-idle .ch-title { color: #fff; opacity: .92; font-size: 28px; }
+  .ch-idle .ch-sub { color: rgba(255,255,255,.55); }
+
+  /* power-off effect */
+  .tv.off .tv-screen .channel-content,
+  .tv.off .tv-screen .channel-tag,
+  .tv.off .tv-screen .channel-time { opacity: 0; }
+  .tv.off .tv-screen { background: #000; }
+  .tv.off .tv-screen::before, .tv.off .tv-screen::after { opacity: 0; }
+  .tv.off .crt-collapse { opacity: 1; }
+  .crt-collapse {
+    position: absolute; left: 0; right: 0; top: 50%;
+    height: 2px; background: rgba(255,255,255,.95);
+    box-shadow: 0 0 20px #fff, 0 0 4px #fff;
+    transform: translateY(-50%) scaleX(1); opacity: 0; transform-origin: center;
+    transition: transform .35s ease-in, opacity .2s ease-in;
+    z-index: 5;
+  }
+  .tv.off .crt-collapse { animation: collapseLine .4s ease-out forwards; }
+  @keyframes collapseLine {
+    0% { transform: translateY(-50%) scaleX(1) scaleY(40); opacity: 1; }
+    50% { transform: translateY(-50%) scaleX(1) scaleY(1); opacity: 1; }
+    100% { transform: translateY(-50%) scaleX(.02) scaleY(1); opacity: .9; }
+  }
+
+  /* TV bottom bar */
+  .tv-controls {
+    position: absolute; left: 0; right: 0; bottom: 18px;
+    display: flex; align-items: center; justify-content: center; gap: 22px;
+  }
+  .tv-led {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: radial-gradient(circle, #4cd964, #1f8b3a);
+    box-shadow: 0 0 10px #4cd964, inset 0 0 2px #1c5e2c;
+  }
+  .tv.off .tv-led { background: #2a2340; box-shadow: none; }
+  .tv-knob {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(160deg, #5b4f78, #2a2340);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.15), inset 0 -2px 0 rgba(0,0,0,.5);
+    position: relative;
+  }
+  .tv-knob::after {
+    content: ""; position: absolute; left: 50%; top: 4px; width: 2px; height: 7px;
+    background: #ddd2ff; transform: translateX(-50%); border-radius: 1px;
+  }
+  .tv-brand {
+    font-family: ui-monospace, "Consolas", monospace;
+    font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,.4);
+  }
+  .tv-stand {
+    width: 60%; height: 18px; margin: -10px auto 0;
+    background: linear-gradient(180deg, #2a2340 0%, #1a1632 100%);
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 18px 24px rgba(40,20,80,.18);
+  }
+  .tv-stand-base {
+    width: 75%; height: 6px; margin: 0 auto;
+    background: #1a1632; border-radius: 4px;
+  }
+
+  /* ---------- mascots around TV ---------- */
+  .mascot {
+    position: absolute; width: 110px; height: 110px;
+    cursor: pointer; z-index: 3;
+    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
+    filter: drop-shadow(0 8px 14px rgba(60,30,90,.18));
+  }
+  .mascot:hover { transform: scale(1.08) rotate(-3deg); }
+  .mascot.cheer { animation: cheer .9s cubic-bezier(.34, 1.56, .64, 1) 1; }
+  @keyframes cheer {
+    0% { transform: translateY(0) rotate(0); }
+    25% { transform: translateY(-26px) rotate(-8deg) scale(1.12); }
+    50% { transform: translateY(0) rotate(0); }
+    75% { transform: translateY(-12px) rotate(6deg) scale(1.08); }
+    100% { transform: translateY(0) rotate(0); }
+  }
+
+  .mascot.m-claude   { top: -10px; left: -28px; animation: floatA 4.4s ease-in-out infinite; }
+  .mascot.m-chatgpt  { top: -28px; right: -22px; animation: floatB 5.2s ease-in-out infinite; }
+  .mascot.m-gemini   { bottom: 10px; left: -36px; animation: floatA 4.8s ease-in-out infinite reverse; }
+  .mascot.m-perplexity { bottom: -8px; right: -28px; animation: floatB 5.6s ease-in-out infinite reverse; }
+  @keyframes floatA { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  @keyframes floatB { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
+
+  .mascot svg { width: 100%; height: 100%; overflow: visible; }
+  .mascot .blink { animation: blink2 5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  @keyframes blink2 { 0%, 92%, 96%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.1); } }
+
+  /* ---------- remote ---------- */
+  .remote {
+    position: relative;
+    width: min(320px, 100%);
+    background: linear-gradient(180deg, #efe6f5 0%, #d8cae8 100%);
+    border-radius: 36px;
+    padding: 22px 22px 26px;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,.7),
+      inset 0 -2px 0 rgba(80,40,120,.18),
+      inset 0 0 0 1px rgba(80,40,120,.08),
+      0 28px 50px rgba(80,40,120,.22),
+      0 6px 12px rgba(80,40,120,.12);
+  }
+  .remote::before {
+    content:""; position: absolute; left: 50%; top: -12px; transform: translateX(-50%);
+    width: 26px; height: 16px; background: #efe6f5;
+    border-radius: 4px 4px 0 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  .ir-led {
+    position: absolute; left: 50%; top: -7px; transform: translateX(-50%);
+    width: 8px; height: 8px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffd6a5, #ff7a45);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.6);
+    z-index: 2;
+  }
+  .ir-led.fire { animation: irFire .35s ease-out 1; }
+  @keyframes irFire {
+    0% { box-shadow: 0 0 0 0 rgba(255,122,69,.9), 0 0 0 2px rgba(255,255,255,.6); }
+    100% { box-shadow: 0 0 0 24px rgba(255,122,69,0), 0 0 0 2px rgba(255,255,255,.6); }
+  }
+
+  .remote-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .brand {
+    display: inline-flex; gap: 7px; align-items: center;
+    font-family: ui-monospace, "Consolas", monospace;
+    font-size: 10px; letter-spacing: 2px; color: #6b5b8e;
+  }
+  .standby-led {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: radial-gradient(circle, #ff5b5b, #a82626);
+    box-shadow: 0 0 6px #ff5b5b;
+    animation: blink 2s ease-in-out infinite;
+  }
+  .remote.off .standby-led { background: #6b5b8e; box-shadow: none; animation: none; }
+
+  .lcd {
+    background: linear-gradient(180deg, #c3eedc 0%, #98d4be 100%);
+    border-radius: 10px; padding: 8px 12px;
+    margin-bottom: 18px;
+    border: 1px solid rgba(0,0,0,.18);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.18);
+    font-family: ui-monospace, "Consolas", monospace;
+    color: #1d3a2e;
+    display: flex; justify-content: space-between; align-items: baseline;
+    min-height: 38px;
+    position: relative; overflow: hidden;
+  }
+  .lcd::before {
+    content:""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px);
+  }
+  .lcd .ch-num { font-size: 18px; font-weight: 700; letter-spacing: 1.5px; }
+  .lcd .ch-name { font-size: 12px; letter-spacing: 1.5px; opacity: .85; }
+  .remote.off .lcd { color: #4a5e54; opacity: .35; }
+
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ch-btn {
+    appearance: none; cursor: pointer;
+    border: none; padding: 14px 10px 16px;
+    border-radius: 16px;
+    color: #fff; font-family: inherit;
+    font-weight: 700; letter-spacing: .3px;
+    display: flex; flex-direction: column; gap: 5px; align-items: center;
+    position: relative; overflow: hidden;
+    transition: transform .12s ease, box-shadow .12s ease, filter .2s ease;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.4),
+      inset 0 -3px 0 rgba(0,0,0,.22),
+      0 8px 14px rgba(0,0,0,.18);
+  }
+  .ch-btn:hover { transform: translateY(-2px); filter: brightness(1.07); }
+  .ch-btn:active, .ch-btn.pressed {
+    transform: translateY(2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.2),
+      inset 0 -1px 0 rgba(0,0,0,.18),
+      0 2px 4px rgba(0,0,0,.18);
+  }
+  .ch-btn::after {
+    content:""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.5), transparent 60%);
+    opacity: 0; transform: scale(.6);
+    transition: opacity .4s ease, transform .4s ease;
+    pointer-events: none;
+  }
+  .ch-btn.ripple::after { opacity: 1; transform: scale(2); transition: opacity .8s ease, transform .8s ease; }
+
+  .ch-btn .num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(0,0,0,.22); color: #fff;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.25);
+    position: absolute; top: 8px; left: 8px;
+  }
+  .ch-btn .icon { width: 36px; height: 36px; margin-top: 6px; }
+  .ch-btn .lbl { font-size: 13px; }
+
+  .ch-btn.btn-claude { background: linear-gradient(180deg, #ff9669 0%, #cc785c 100%); }
+  .ch-btn.btn-chatgpt { background: linear-gradient(180deg, #2bd6a8 0%, #10a37f 100%); }
+  .ch-btn.btn-gemini { background: linear-gradient(180deg, #6aa1ff 0%, #4285f4 50%, #c879ff 100%); }
+  .ch-btn.btn-perplexity { background: linear-gradient(180deg, #3da5b3 0%, #20808d 100%); }
+
+  .remote.off .ch-btn { filter: grayscale(.7) brightness(.7); pointer-events: none; }
+
+  /* rocker rows */
+  .rockers {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 12px;
+  }
+  .rocker {
+    border-radius: 26px;
+    background: linear-gradient(180deg, #cebadc 0%, #b29ec5 100%);
+    padding: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.5),
+      inset 0 -2px 0 rgba(0,0,0,.15);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .rock-btn {
+    appearance: none; border: none; background: transparent; cursor: pointer;
+    color: #4b3a6e; font-family: inherit; font-weight: 700;
+    font-size: 12px; letter-spacing: 1px;
+    padding: 7px 0; transition: background .14s ease;
+  }
+  .rock-btn:hover { background: rgba(255,255,255,.4); }
+  .rock-btn:active { background: rgba(0,0,0,.08); }
+  .rock-btn + .rock-btn { border-top: 1px solid rgba(0,0,0,.1); }
+  .rock-label {
+    text-align: center; font-size: 9px; letter-spacing: 2px;
+    color: #6b5b8e; margin-bottom: 3px;
+  }
+
+  .bottom-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .util-btn {
+    appearance: none; border: none; cursor: pointer;
+    padding: 12px 0; border-radius: 14px;
+    font-family: inherit; font-weight: 800;
+    font-size: 12px; letter-spacing: 1.5px;
+    color: #fff;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.3),
+      inset 0 -2px 0 rgba(0,0,0,.25),
+      0 6px 12px rgba(0,0,0,.18);
+    transition: transform .12s ease;
+  }
+  .util-btn:active { transform: translateY(2px); }
+  .power { background: linear-gradient(180deg, #ff7a8e 0%, #d63a52 100%); }
+  .mute { background: linear-gradient(180deg, #5b78a8 0%, #3a4f7a 100%); }
+
+  .hint {
+    text-align: center; margin-top: 28px;
+    font-size: 12px; color: #6b5f8a;
+    letter-spacing: .2px;
+  }
+  .hint kbd {
+    background: #fff; border: 1px solid rgba(80,40,120,.18);
+    border-radius: 6px; padding: 1px 7px; font-family: inherit;
+    font-size: 11px; box-shadow: 0 2px 0 rgba(80,40,120,.15);
+  }
+
+  /* responsive */
+  @media (max-width: 880px) {
+    .stage {
+      grid-template-columns: 1fr;
+      grid-template-areas: "tv" "remote";
+      padding: 24px 16px 60px; gap: 28px;
+    }
+    .mascot { width: 80px; height: 80px; }
+    .mascot.m-claude { top: -6px; left: -8px; }
+    .mascot.m-chatgpt { top: -22px; right: -4px; }
+    .mascot.m-gemini { bottom: 8px; left: -10px; }
+    .mascot.m-perplexity { bottom: -4px; right: -6px; }
+  }
+
+  /* volume bar */
+  .volbar {
+    position: fixed; left: 50%; top: 28px; transform: translateX(-50%);
+    background: rgba(43,36,64,.86); color: #fff;
+    padding: 8px 14px; border-radius: 999px;
+    font-size: 11px; letter-spacing: 2px;
+    backdrop-filter: blur(6px);
+    display: flex; gap: 6px; align-items: center;
+    opacity: 0; transition: opacity .2s ease, transform .2s ease;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .volbar.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .volbar .seg {
+    display: inline-block; width: 6px; height: 14px;
+    background: rgba(255,255,255,.18); border-radius: 1px;
+  }
+  .volbar .seg.on { background: #4cd964; box-shadow: 0 0 6px #4cd964; }
+  .volbar.muted .seg.on { background: #ff5b5b; box-shadow: 0 0 6px #ff5b5b; }
+</style>
+</head>
+<body>
+<div class="stars" aria-hidden="true">
+  <i style="left:8%;top:18%;animation-delay:0s"></i>
+  <i style="left:18%;top:62%;animation-delay:1.2s"></i>
+  <i style="left:90%;top:14%;animation-delay:.6s"></i>
+  <i style="left:82%;top:74%;animation-delay:1.8s"></i>
+  <i style="left:36%;top:8%;animation-delay:2.4s"></i>
+  <i style="left:62%;top:88%;animation-delay:3s"></i>
+  <i style="left:48%;top:50%;animation-delay:2s;width:4px;height:4px"></i>
+  <i style="left:6%;top:42%;animation-delay:.4s;width:4px;height:4px"></i>
+  <i style="left:96%;top:48%;animation-delay:1.6s;width:4px;height:4px"></i>
+</div>
+
+<div class="stage">
+  <header class="header">
+    <div class="badge"><span class="dot"></span> ON AIR · AI-VISION RC-2026</div>
+    <h1>AI 리모컨</h1>
+    <p>채널 1·2·3·4 — 마음에 드는 AI로 바로 이동하세요</p>
+  </header>
+
+  <div class="tv-area">
+    <!-- Mascot: Claude -->
+    <div class="mascot m-claude" data-i="0" title="Claude">
+      <svg viewBox="0 0 140 150" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="claudeBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffb88c"/>
+            <stop offset="1" stop-color="#cc785c"/>
+          </linearGradient>
+          <radialGradient id="claudeStar" cx=".5" cy=".5" r=".7">
+            <stop offset="0" stop-color="#fff5c0"/>
+            <stop offset="1" stop-color="#ffc857"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="70" cy="138" rx="40" ry="6" fill="#3a2a4a" opacity=".18"/>
+        <g style="transform-origin: 70px 30px; animation: floatA 3s ease-in-out infinite;">
+          <path d="M 70 12 L 76 28 L 92 30 L 80 41 L 84 57 L 70 49 L 56 57 L 60 41 L 48 30 L 64 28 Z"
+                fill="url(#claudeStar)" stroke="#cc785c" stroke-width="1.6" stroke-linejoin="round"/>
+        </g>
+        <g>
+          <ellipse cx="70" cy="98" rx="48" ry="32" fill="url(#claudeBody)"/>
+          <circle cx="38" cy="86" r="22" fill="url(#claudeBody)"/>
+          <circle cx="102" cy="86" r="22" fill="url(#claudeBody)"/>
+          <circle cx="56" cy="72" r="18" fill="url(#claudeBody)"/>
+          <circle cx="84" cy="72" r="18" fill="url(#claudeBody)"/>
+          <ellipse cx="50" cy="103" rx="7" ry="4.5" fill="#ff8b78" opacity=".75"/>
+          <ellipse cx="90" cy="103" rx="7" ry="4.5" fill="#ff8b78" opacity=".75"/>
+          <g class="blink">
+            <path d="M 56 92 Q 62 87 68 92" stroke="#3a2418" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M 72 92 Q 78 87 84 92" stroke="#3a2418" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </g>
+          <ellipse cx="70" cy="106" rx="5" ry="4" fill="#3a2418"/>
+          <ellipse cx="68" cy="105" rx="2" ry="1.5" fill="#ff8b78"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Mascot: ChatGPT -->
+    <div class="mascot m-chatgpt" data-i="1" title="ChatGPT">
+      <svg viewBox="0 0 140 150" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gptBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3ee5b5"/>
+            <stop offset="1" stop-color="#10a37f"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="70" cy="142" rx="38" ry="6" fill="#0a4a3a" opacity=".18"/>
+        <g>
+          <line x1="50" y1="22" x2="46" y2="6" stroke="#10a37f" stroke-width="3" stroke-linecap="round"/>
+          <line x1="90" y1="22" x2="94" y2="6" stroke="#10a37f" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="46" cy="6" r="5" fill="#3ee5b5" stroke="#10a37f" stroke-width="2"/>
+          <circle cx="94" cy="6" r="5" fill="#3ee5b5" stroke="#10a37f" stroke-width="2"/>
+        </g>
+        <g>
+          <path d="M 30 36 Q 30 22 46 22 L 96 22 Q 110 22 110 36 L 110 92 Q 110 106 96 106 L 84 106 L 76 124 L 68 106 L 46 106 Q 30 106 30 92 Z"
+                fill="url(#gptBody)" stroke="#0d8a6a" stroke-width="2.2"/>
+          <ellipse cx="56" cy="76" rx="6" ry="4" fill="#88f0ce" opacity=".65"/>
+          <ellipse cx="84" cy="76" rx="6" ry="4" fill="#88f0ce" opacity=".65"/>
+          <g class="blink">
+            <ellipse cx="56" cy="62" rx="6.5" ry="8" fill="#0a3a2a"/>
+            <ellipse cx="84" cy="62" rx="6.5" ry="8" fill="#0a3a2a"/>
+            <circle cx="58" cy="59" r="2.3" fill="#fff"/>
+            <circle cx="86" cy="59" r="2.3" fill="#fff"/>
+          </g>
+          <path d="M 60 82 Q 70 92 80 82" stroke="#0a3a2a" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g style="transform-origin: 70px 96px; animation: typing 1.6s ease-in-out infinite;">
+            <circle cx="60" cy="96" r="2" fill="#0a3a2a" opacity=".6"/>
+            <circle cx="70" cy="96" r="2" fill="#0a3a2a" opacity=".6"/>
+            <circle cx="80" cy="96" r="2" fill="#0a3a2a" opacity=".6"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Mascot: Gemini -->
+    <div class="mascot m-gemini" data-i="2" title="Gemini">
+      <svg viewBox="0 0 160 140" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="gemA" cx=".5" cy=".5" r=".7">
+            <stop offset="0" stop-color="#a9c8ff"/>
+            <stop offset="1" stop-color="#4285f4"/>
+          </radialGradient>
+          <radialGradient id="gemB" cx=".5" cy=".5" r=".7">
+            <stop offset="0" stop-color="#ffb1c8"/>
+            <stop offset="1" stop-color="#c879ff"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="80" cy="130" rx="52" ry="6" fill="#3a2a6a" opacity=".18"/>
+        <g style="transform-origin: 80px 70px; animation: orbit 7s linear infinite;">
+          <g transform="translate(38 70)">
+            <path d="M 0 -36 L 9 -9 L 36 0 L 9 9 L 0 36 L -9 9 L -36 0 L -9 -9 Z"
+                  fill="url(#gemA)" stroke="#3a6cd9" stroke-width="2"/>
+            <ellipse cx="-3" cy="-2" rx="4" ry="6" fill="#fff" opacity=".6"/>
+            <g class="blink">
+              <circle cx="-5" cy="-1" r="3" fill="#142c5e"/>
+              <circle cx="6" cy="-1" r="3" fill="#142c5e"/>
+              <circle cx="-4" cy="-2" r="1" fill="#fff"/>
+              <circle cx="7" cy="-2" r="1" fill="#fff"/>
+            </g>
+            <path d="M -4 6 Q 0 9 4 6" stroke="#142c5e" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </g>
+          <g transform="translate(122 70)">
+            <path d="M 0 -32 L 8 -8 L 32 0 L 8 8 L 0 32 L -8 8 L -32 0 L -8 -8 Z"
+                  fill="url(#gemB)" stroke="#a45dd9" stroke-width="2"/>
+            <g class="blink">
+              <circle cx="-5" cy="-1" r="3" fill="#3a1054"/>
+              <circle cx="6" cy="-1" r="3" fill="#3a1054"/>
+              <circle cx="-4" cy="-2" r="1" fill="#fff"/>
+              <circle cx="7" cy="-2" r="1" fill="#fff"/>
+            </g>
+            <path d="M -3 7 Q 1 10 5 7" stroke="#3a1054" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </g>
+          <line x1="60" y1="70" x2="100" y2="70" stroke="#c879ff" stroke-width="2" stroke-dasharray="2 3" opacity=".7"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Mascot: Perplexity (owl) -->
+    <div class="mascot m-perplexity" data-i="3" title="Perplexity">
+      <svg viewBox="0 0 140 150" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="owlBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3da5b3"/>
+            <stop offset="1" stop-color="#155f6b"/>
+          </linearGradient>
+          <linearGradient id="owlBelly" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fff8e8"/>
+            <stop offset="1" stop-color="#f3d8a8"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="70" cy="138" rx="38" ry="6" fill="#0a3a44" opacity=".22"/>
+        <g>
+          <path d="M 30 60 L 38 36 L 50 56 Z" fill="url(#owlBody)"/>
+          <path d="M 110 60 L 102 36 L 90 56 Z" fill="url(#owlBody)"/>
+          <ellipse cx="70" cy="80" rx="44" ry="50" fill="url(#owlBody)"/>
+          <ellipse cx="70" cy="92" rx="28" ry="32" fill="url(#owlBelly)"/>
+          <path d="M 56 70 Q 58 74 60 70 M 64 78 Q 66 82 68 78 M 72 78 Q 74 82 76 78 M 80 70 Q 82 74 84 70" stroke="#c9a87c" stroke-width="1.5" fill="none" opacity=".7"/>
+          <circle cx="50" cy="68" r="14" fill="#fff8e8"/>
+          <circle cx="90" cy="68" r="14" fill="#fff8e8"/>
+          <g class="blink">
+            <circle cx="50" cy="68" r="9" fill="#ffb84a"/>
+            <circle cx="90" cy="68" r="9" fill="#ffb84a"/>
+            <circle cx="50" cy="68" r="5" fill="#1a1632"/>
+            <circle cx="90" cy="68" r="5" fill="#1a1632"/>
+            <circle cx="52" cy="66" r="2" fill="#fff"/>
+            <circle cx="92" cy="66" r="2" fill="#fff"/>
+          </g>
+          <path d="M 64 82 L 70 92 L 76 82 Z" fill="#ff9a3d" stroke="#c66a1a" stroke-width="1.2" stroke-linejoin="round"/>
+          <path d="M 30 116 Q 40 122 48 118" stroke="#0a3a44" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M 110 116 Q 100 122 92 118" stroke="#0a3a44" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <g style="transform-origin: 110px 100px; animation: floatB 3.6s ease-in-out infinite;">
+            <circle cx="118" cy="98" r="10" fill="none" stroke="#1a1632" stroke-width="3"/>
+            <circle cx="118" cy="98" r="8" fill="rgba(150,220,255,.4)"/>
+            <line x1="125" y1="105" x2="132" y2="112" stroke="#1a1632" stroke-width="3" stroke-linecap="round"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="tv" id="tv">
+      <div class="tv-antenna" aria-hidden="true"></div>
+      <div class="tv-body">
+        <div class="tv-screen">
+          <div class="static-layer" id="staticLayer"></div>
+          <div class="crt-collapse" aria-hidden="true"></div>
+          <div class="channel-time" id="screenTime">00:00</div>
+          <div class="channel-tag" id="screenTag">CH 00</div>
+          <div class="channel-content ch-idle" id="screenContent">
+            <div class="ch-logo" id="screenLogo">
+              <svg viewBox="0 0 64 64" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-dasharray="3 4"/>
+                <text x="32" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="22" fill="rgba(255,255,255,.8)">AI</text>
+              </svg>
+            </div>
+            <div class="ch-title" id="screenTitle">AI VISION</div>
+            <div class="ch-sub" id="screenSub">CHANNEL READY</div>
+          </div>
+        </div>
+        <div class="tv-controls">
+          <span class="tv-led" id="tvLed"></span>
+          <span class="tv-knob"></span>
+          <span class="tv-brand">AI&nbsp;VISION</span>
+          <span class="tv-knob"></span>
+        </div>
+      </div>
+      <div class="tv-stand"></div>
+      <div class="tv-stand-base"></div>
+    </div>
+  </div>
+
+  <div class="remote-area">
+    <div class="remote" id="remote">
+      <span class="ir-led" id="irLed" aria-hidden="true"></span>
+
+      <div class="remote-top">
+        <span class="brand"><span class="standby-led" id="stdLed"></span> RC-2026</span>
+        <span class="brand">PROD · KR</span>
+      </div>
+
+      <div class="lcd">
+        <span class="ch-num" id="lcdNum">CH·00</span>
+        <span class="ch-name" id="lcdName">STANDBY</span>
+      </div>
+
+      <div class="grid" id="btnGrid">
+        <button class="ch-btn btn-claude" data-i="0" data-url="https://claude.ai" data-name="Claude" data-tag="CH 01" data-tagline="당신의 창의적 파트너">
+          <span class="num">1</span>
+          <svg class="icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 32 14 L 36 24 L 47 24 L 38 31 L 41 42 L 32 36 L 23 42 L 26 31 L 17 24 L 28 24 Z"
+                  fill="#fff" opacity=".95"/>
+          </svg>
+          <span class="lbl">Claude</span>
+        </button>
+        <button class="ch-btn btn-chatgpt" data-i="1" data-url="https://chatgpt.com" data-name="ChatGPT" data-tag="CH 02" data-tagline="가장 친숙한 AI 어시스턴트">
+          <span class="num">2</span>
+          <svg class="icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 18 20 Q 18 14 24 14 L 40 14 Q 46 14 46 20 L 46 34 Q 46 40 40 40 L 32 40 L 26 48 L 26 40 L 24 40 Q 18 40 18 34 Z"
+                  fill="#fff" opacity=".95"/>
+            <circle cx="27" cy="27" r="2.4" fill="#10a37f"/>
+            <circle cx="32" cy="27" r="2.4" fill="#10a37f"/>
+            <circle cx="37" cy="27" r="2.4" fill="#10a37f"/>
+          </svg>
+          <span class="lbl">ChatGPT</span>
+        </button>
+        <button class="ch-btn btn-gemini" data-i="2" data-url="https://gemini.google.com" data-name="Gemini" data-tag="CH 03" data-tagline="구글의 차세대 AI">
+          <span class="num">3</span>
+          <svg class="icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 32 12 L 36 28 L 52 32 L 36 36 L 32 52 L 28 36 L 12 32 L 28 28 Z"
+                  fill="#fff" opacity=".95"/>
+          </svg>
+          <span class="lbl">Gemini</span>
+        </button>
+        <button class="ch-btn btn-perplexity" data-i="3" data-url="https://www.perplexity.ai" data-name="Perplexity" data-tag="CH 04" data-tagline="답을 찾아드립니다">
+          <span class="num">4</span>
+          <svg class="icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="28" cy="28" r="11" fill="none" stroke="#fff" stroke-width="3.5"/>
+            <line x1="36" y1="36" x2="48" y2="48" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+          </svg>
+          <span class="lbl">Perplexity</span>
+        </button>
+      </div>
+
+      <div class="rockers">
+        <div>
+          <div class="rock-label">CH</div>
+          <div class="rocker">
+            <button class="rock-btn" data-act="ch-up">▲</button>
+            <button class="rock-btn" data-act="ch-down">▼</button>
+          </div>
+        </div>
+        <div>
+          <div class="rock-label">VOL</div>
+          <div class="rocker">
+            <button class="rock-btn" data-act="vol-up">＋</button>
+            <button class="rock-btn" data-act="vol-down">－</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-row">
+        <button class="util-btn power" id="powerBtn">⏻ POWER</button>
+        <button class="util-btn mute" id="muteBtn">MUTE</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint">
+    <kbd>1</kbd>·<kbd>2</kbd>·<kbd>3</kbd>·<kbd>4</kbd> 채널 이동 ·
+    <kbd>↑</kbd><kbd>↓</kbd> CH ·
+    <kbd>+</kbd><kbd>−</kbd> VOL ·
+    <kbd>P</kbd> 전원 ·
+    <kbd>M</kbd> 음소거
+  </div>
+</div>
+
+<div class="volbar" id="volbar"><span class="lbl">VOL</span></div>
+
+<style>
+  /* extra keyframes referenced inline */
+  @keyframes orbit { to { transform: rotate(360deg); } }
+  @keyframes typing {
+    0%, 60%, 100% { opacity: .35; transform: translateY(0); }
+    20% { opacity: 1; transform: translateY(-2px); }
+  }
+</style>
+
+<script>
+(() => {
+  const screenTitle  = document.getElementById('screenTitle');
+  const screenSub    = document.getElementById('screenSub');
+  const screenLogo   = document.getElementById('screenLogo');
+  const screenTag    = document.getElementById('screenTag');
+  const screenTime   = document.getElementById('screenTime');
+  const screenCt     = document.getElementById('screenContent');
+  const lcdNum       = document.getElementById('lcdNum');
+  const lcdName      = document.getElementById('lcdName');
+  const irLed        = document.getElementById('irLed');
+  const tv           = document.getElementById('tv');
+  const remote       = document.getElementById('remote');
+  const staticLayer  = document.getElementById('staticLayer');
+  const powerBtn     = document.getElementById('powerBtn');
+  const muteBtn      = document.getElementById('muteBtn');
+  const volbar       = document.getElementById('volbar');
+  const buttons      = [...document.querySelectorAll('.ch-btn')];
+  const mascots      = [...document.querySelectorAll('.mascot')];
+  const rockers      = [...document.querySelectorAll('.rock-btn')];
+
+  const channels = buttons.map(b => ({
+    el: b,
+    i: +b.dataset.i,
+    url: b.dataset.url,
+    name: b.dataset.name,
+    tag: b.dataset.tag,
+    tagline: b.dataset.tagline,
+  }));
+
+  let powered = true;
+  let muted   = false;
+  let vol     = 7;
+  let focused = -1;
+  let openLock = false;
+  let staticTimer;
+
+  function fmtTime() {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  function tickTime() { screenTime.textContent = fmtTime(); }
+  tickTime(); setInterval(tickTime, 30000);
+
+  function setLogo(svgInner) {
+    screenLogo.innerHTML = svgInner;
+  }
+  const idleLogo = `
+    <svg viewBox="0 0 64 64" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-dasharray="3 4"/>
+      <text x="32" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="22" fill="rgba(255,255,255,.8)">AI</text>
+    </svg>`;
+
+  function showIdle() {
+    if (!powered) return;
+    screenCt.classList.add('ch-idle');
+    screenTitle.textContent = 'AI VISION';
+    screenTitle.style.color = '';
+    screenSub.textContent = 'CHANNEL READY';
+    screenTag.textContent = 'CH 00';
+    setLogo(idleLogo);
+    if (focused < 0) {
+      lcdNum.textContent = 'CH·00';
+      lcdName.textContent = 'STANDBY';
+    }
+  }
+
+  const channelLogos = {
+    Claude: `<svg viewBox="0 0 64 64" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 32 8 L 38 24 L 56 26 L 42 36 L 46 54 L 32 44 L 18 54 L 22 36 L 8 26 L 26 24 Z"
+            fill="#ffb88c" stroke="#cc785c" stroke-width="2.2" stroke-linejoin="round"/>
+    </svg>`,
+    ChatGPT: `<svg viewBox="0 0 64 64" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 32 8 a 24 24 0 1 0 0 48 a 24 24 0 1 0 0 -48 M 32 16 L 38 28 L 50 32 L 38 36 L 32 48 L 26 36 L 14 32 L 26 28 Z"
+            fill="#10a37f" stroke="#0d8a6a" stroke-width="1.5" stroke-linejoin="round" fill-rule="evenodd"/>
+    </svg>`,
+    Gemini: `<svg viewBox="0 0 64 64" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 32 8 L 36 28 L 56 32 L 36 36 L 32 56 L 28 36 L 8 32 L 28 28 Z"
+            fill="#4285f4" stroke="#1f64d8" stroke-width="2"/>
+      <path d="M 32 18 L 34 30 L 46 32 L 34 34 L 32 46 L 30 34 L 18 32 L 30 30 Z"
+            fill="#c879ff" opacity=".75"/>
+    </svg>`,
+    Perplexity: `<svg viewBox="0 0 64 64" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="28" cy="28" r="14" fill="none" stroke="#3da5b3" stroke-width="4.5"/>
+      <line x1="38" y1="38" x2="54" y2="54" stroke="#20808d" stroke-width="5" stroke-linecap="round"/>
+    </svg>`,
+  };
+  const channelColors = {
+    Claude: '#ffb88c', ChatGPT: '#3ee5b5', Gemini: '#a9c8ff', Perplexity: '#3da5b3'
+  };
+
+  function blastStatic(ms = 320) {
+    staticLayer.style.opacity = '.85';
+    clearTimeout(staticTimer);
+    staticTimer = setTimeout(() => {
+      staticLayer.style.opacity = '0';
+    }, ms);
+  }
+
+  function tuneTo(i, { fire = false } = {}) {
+    if (!powered) return;
+    const ch = channels[i];
+    if (!ch) return;
+    blastStatic();
+    setTimeout(() => {
+      screenCt.classList.remove('ch-idle');
+      screenTitle.textContent = ch.name.toUpperCase();
+      screenTitle.style.color = channelColors[ch.name];
+      screenSub.textContent = ch.tagline;
+      screenTag.textContent = ch.tag;
+      setLogo(channelLogos[ch.name]);
+      lcdNum.textContent = ch.tag.replace(' ', '·');
+      lcdName.textContent = ch.name.toUpperCase();
+    }, 150);
+    if (fire) {
+      irLed.classList.remove('fire'); void irLed.offsetWidth; irLed.classList.add('fire');
+    }
+  }
+
+  function pressBtn(i) {
+    if (!powered) return;
+    const ch = channels[i];
+    const btn = ch.el;
+    btn.classList.remove('pressed','ripple');
+    void btn.offsetWidth;
+    btn.classList.add('pressed','ripple');
+    setTimeout(() => btn.classList.remove('pressed','ripple'), 600);
+    const m = mascots[i];
+    if (m) {
+      m.classList.remove('cheer'); void m.offsetWidth; m.classList.add('cheer');
+    }
+    focused = i;
+    tuneTo(i, { fire: true });
+  }
+
+  function activate(i) {
+    if (!powered || openLock) return;
+    const ch = channels[i];
+    if (!ch) return;
+    openLock = true;
+    pressBtn(i);
+    blastStatic(700);
+    setTimeout(() => {
+      try {
+        window.open(ch.url, '_blank', 'noopener,noreferrer');
+      } finally {
+        openLock = false;
+      }
+    }, 380);
+  }
+
+  // mouse interactions
+  buttons.forEach(b => {
+    const i = +b.dataset.i;
+    b.addEventListener('mouseenter', () => { focused = i; tuneTo(i); });
+    b.addEventListener('mouseleave', () => { /* keep last */ });
+    b.addEventListener('click', () => activate(i));
+  });
+  mascots.forEach(m => {
+    const i = +m.dataset.i;
+    m.addEventListener('mouseenter', () => { focused = i; tuneTo(i); });
+    m.addEventListener('click', () => activate(i));
+  });
+
+  // rockers
+  rockers.forEach(r => {
+    r.addEventListener('click', () => {
+      const a = r.dataset.act;
+      if (a === 'ch-up')   cycleCh(+1);
+      if (a === 'ch-down') cycleCh(-1);
+      if (a === 'vol-up')  setVol(vol + 1);
+      if (a === 'vol-down')setVol(vol - 1);
+    });
+  });
+
+  function cycleCh(d) {
+    if (!powered) return;
+    let n = (focused < 0 ? 0 : focused) + d;
+    if (n < 0) n = channels.length - 1;
+    if (n >= channels.length) n = 0;
+    focused = n;
+    pressBtn(n);
+  }
+
+  function setVol(v) {
+    vol = Math.max(0, Math.min(10, v));
+    showVol();
+  }
+  function showVol() {
+    let segs = '';
+    for (let i = 0; i < 10; i++) segs += `<span class="seg ${i < vol && !muted ? 'on' : ''}"></span>`;
+    volbar.innerHTML = `<span style="margin-right:6px">${muted ? 'MUTE' : 'VOL ' + vol}</span>${segs}`;
+    volbar.classList.toggle('muted', muted);
+    volbar.classList.add('show');
+    clearTimeout(showVol._t);
+    showVol._t = setTimeout(() => volbar.classList.remove('show'), 1200);
+  }
+
+  // power
+  function setPower(on) {
+    powered = on;
+    tv.classList.toggle('off', !on);
+    remote.classList.toggle('off', !on);
+    if (on) {
+      focused = -1;
+      showIdle();
+    }
+  }
+  powerBtn.addEventListener('click', () => setPower(!powered));
+  muteBtn.addEventListener('click', () => { muted = !muted; showVol(); });
+
+  // keyboard
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (['1','2','3','4'].includes(k)) { activate(+k - 1); e.preventDefault(); return; }
+    if (k === 'arrowup')   { cycleCh(+1); e.preventDefault(); return; }
+    if (k === 'arrowdown') { cycleCh(-1); e.preventDefault(); return; }
+    if (k === '+' || k === '=') { setVol(vol + 1); return; }
+    if (k === '-')         { setVol(vol - 1); return; }
+    if (k === 'p')         { setPower(!powered); return; }
+    if (k === 'm')         { muted = !muted; showVol(); return; }
+  });
+
+  // initial state
+  showIdle();
+})();
+</script>
+</body>
+</html>
